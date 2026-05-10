@@ -3,4 +3,4 @@ gspread
 google-auth
 python-dotenv
 Werkzeug
-gunicord
+gunicorn
