@@ -1,0 +1,33 @@
+# Python virtual environment
+venv/
+.env/
+.venv/
+
+# Environment variables
+.env
+
+# Google credentials
+credentials.json
+
+# Uploaded files
+uploads/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Flask
+instance/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

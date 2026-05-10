@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Job Application Collector</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+    <div class="container">
+        <h1>Ứng tuyển công việc</h1>
+        <p class="subtitle">
+            Điền thông tin của bạn và upload CV dạng PDF.
+        </p>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="message-box">
+                    {% for message in messages %}
+                        <p>{{ message }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>Họ tên</label>
+                <input type="text" name="full_name" placeholder="Nguyễn Văn A" required>
+            </div>
+
+            <div class="form-group">
+                <label>Tuổi</label>
+                <input type="number" name="age" placeholder="22" required>
+            </div>
+
+            <div class="form-group">
+                <label>Số điện thoại</label>
+                <input type="text" name="phone" placeholder="0901234567" required>
+            </div>
+
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" placeholder="email@example.com" required>
+            </div>
+
+            <div class="form-group">
+                <label>Vị trí mong muốn</label>
+                <input type="text" name="desired_position" placeholder="Python Developer Intern" required>
+            </div>
+
+            <div class="form-group">
+                <label>Upload CV PDF</label>
+                <input type="file" name="cv_file" accept="application/pdf" required>
+            </div>
+
+            <button type="submit">Gửi hồ sơ</button>
+        </form>
+    </div>
+
+</body>
+</html>
+
+
+
