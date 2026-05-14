@@ -10,9 +10,9 @@
 <body>
 
     <div class="container">
-        <h1>Ứng tuyển công việc</h1>
+        <h1>Job Application Collector</h1>
         <p class="subtitle">
-            Điền thông tin của bạn và upload CV dạng PDF.
+            Information eingeben und Lebenslauf hochladen, um sich für die Stelle zu bewerben.
         </p>
 
         {% with messages = get_flashed_messages() %}
@@ -27,17 +27,17 @@
 
         <form method="POST" enctype="multipart/form-data">
             <div class="form-group">
-                <label>Họ tên</label>
+                <label>Vollständiger Name</label>
                 <input type="text" name="full_name" placeholder="Nguyễn Văn A" required>
             </div>
 
             <div class="form-group">
-                <label>Tuổi</label>
+                <label>Alter</label>
                 <input type="number" name="age" placeholder="22" required>
             </div>
 
             <div class="form-group">
-                <label>Số điện thoại</label>
+                <label>Telefonenummer</label>
                 <input type="text" name="phone" placeholder="0901234567" required>
             </div>
 
@@ -47,16 +47,16 @@
             </div>
 
             <div class="form-group">
-                <label>Vị trí mong muốn</label>
+                <label>gewünschte Position</label>
                 <input type="text" name="desired_position" placeholder="Python Developer Intern" required>
             </div>
 
             <div class="form-group">
-                <label>Upload CV PDF</label>
+                <label>hochladen CV PDF</label>
                 <input type="file" name="cv_file" accept="application/pdf" required>
             </div>
 
-            <button type="submit">Gửi hồ sơ</button>
+            <button type="submit">Senden</button>
         </form>
     </div>
 
