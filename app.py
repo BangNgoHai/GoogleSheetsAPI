@@ -1,5 +1,4 @@
 import os
-import json
 from datetime import datetime
 
 from flask import Flask, render_template, request, redirect, url_for, flash
@@ -22,7 +21,7 @@ app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
 # Email Configuration
 app.config['MAIL_SERVER'] = os.getenv("MAIL_SERVER", "smtp.gmail.com")
 app.config['MAIL_PORT'] = int(os.getenv("MAIL_PORT", 587))
-app.config['MAIL_USE_TLS'] = os.getenv("MAIL_USE_TLS", True)
+app.config['MAIL_USE_TLS'] = os.getenv("MAIL_USE_TLS", "True").lower() == "true"
 app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
 app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv("MAIL_DEFAULT_SENDER", os.getenv("MAIL_USERNAME"))
@@ -50,29 +49,12 @@ def get_google_sheet():
     ]
 
     credentials_file = os.getenv("GOOGLE_CREDENTIALS_FILE")
-    credentials_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
     sheet_id = os.getenv("GOOGLE_SHEET_ID")
 
-    if not sheet_id:
-        raise ValueError("GOOGLE_SHEET_ID environment variable not set")
-
-    # Prefer JSON credentials provided via environment (safer for deploys)
-    if credentials_json:
-        try:
-            info = json.loads(credentials_json)
-            credentials = Credentials.from_service_account_info(info, scopes=scopes)
-        except Exception as e:
-            raise ValueError(f"Invalid GOOGLE_CREDENTIALS_JSON: {e}")
-
-    else:
-        if not credentials_file:
-            raise ValueError("GOOGLE_CREDENTIALS_FILE environment variable not set and GOOGLE_CREDENTIALS_JSON not provided")
-        if not os.path.exists(credentials_file):
-            raise FileNotFoundError(f"Credentials file not found: {credentials_file}")
-        credentials = Credentials.from_service_account_file(
-            credentials_file,
-            scopes=scopes
-        )
+    credentials = Credentials.from_service_account_file(
+        credentials_file,
+        scopes=scopes
+    )
 
     client = gspread.authorize(credentials)
 
