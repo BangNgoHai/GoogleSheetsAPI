@@ -1,4 +1,5 @@
 Flask
+Flask-Mail
 gspread
 google-auth
 python-dotenv
