@@ -12,7 +12,7 @@
     <div class="container">
         <h1>Job Application Collector</h1>
         <p class="subtitle">
-            Information eingeben und Lebenslauf hochladen, um sich für die Stelle zu bewerben.
+            Enter your information and upload your CV to apply for the position.
         </p>
 
         {% with messages = get_flashed_messages() %}
@@ -27,17 +27,17 @@
 
         <form method="POST" enctype="multipart/form-data">
             <div class="form-group">
-                <label>Vollständiger Name</label>
+                <label>Full Name</label>
                 <input type="text" name="full_name" placeholder="Eugene Slege" required>
             </div>
 
             <div class="form-group">
-                <label>Alter</label>
+                <label>Age</label>
                 <input type="number" name="age" placeholder="22" required>
             </div>
 
             <div class="form-group">
-                <label>Telefonenummer</label>
+                <label>Phone Number</label>
                 <input type="text" name="phone" placeholder="0901234567" required>
             </div>
 
@@ -47,16 +47,16 @@
             </div>
 
             <div class="form-group">
-                <label>gewünschte Position</label>
+                <label>Desired Position</label>
                 <input type="text" name="desired_position" placeholder="Python Developer Intern" required>
             </div>
 
             <div class="form-group">
-                <label>hochladen CV PDF</label>
+                <label>Upload CV (PDF)</label>
                 <input type="file" name="cv_file" accept="application/pdf" required>
             </div>
 
-            <button type="submit">Senden</button>
+            <button type="submit">Submit</button>
         </form>
     </div>
 
