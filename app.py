@@ -1,12 +1,13 @@
 import os
-import json
-import tempfile
+import traceback
 from datetime import datetime
+from threading import Thread
 
-from flask import Flask, render_template, request, redirect, url_for, flash
-from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
+from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_mail import Mail, Message
+from werkzeug.utils import secure_filename
+from werkzeug.exceptions import RequestEntityTooLarge
 
 import gspread
 from google.oauth2.service_account import Credentials
@@ -15,95 +16,96 @@ from google.oauth2.service_account import Credentials
 load_dotenv()
 
 app = Flask(__name__)
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "change-this-secret-key")
 
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-key")
-app.config["UPLOAD_FOLDER"] = os.getenv("UPLOAD_FOLDER", os.path.join(tempfile.gettempdir(), "uploads"))
+
+# Upload config
+UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "/tmp/uploads")
+ALLOWED_EXTENSIONS = {"pdf"}
+
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
 
-# Email Configuration
-app.config['MAIL_SERVER'] = os.getenv("MAIL_SERVER", "smtp.gmail.com")
-app.config['MAIL_PORT'] = int(os.getenv("MAIL_PORT", 587))
-app.config['MAIL_USE_TLS'] = os.getenv("MAIL_USE_TLS", "True").lower() == "true"
-app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
-app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
-app.config['MAIL_DEFAULT_SENDER'] = os.getenv("MAIL_DEFAULT_SENDER", os.getenv("MAIL_USERNAME"))
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
+# Mail config
+app.config["MAIL_SERVER"] = os.getenv("MAIL_SERVER", "smtp.gmail.com")
+app.config["MAIL_PORT"] = int(os.getenv("MAIL_PORT", 587))
+app.config["MAIL_USE_TLS"] = os.getenv("MAIL_USE_TLS", "True").lower() == "true"
+app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
+app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
+app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER", os.getenv("MAIL_USERNAME"))
+app.config["MAIL_TIMEOUT"] = int(os.getenv("MAIL_TIMEOUT", 10))
 
 mail = Mail(app)
 
-ALLOWED_EXTENSIONS = {"pdf"}
 
-os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+# Google Sheets config
+GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
+GOOGLE_CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE", "credentials.json")
 
-# Debug: print environment variables
-print("=== ENVIRONMENT CHECK ===")
-print(f"GOOGLE_CREDENTIALS_FILE: {os.getenv('GOOGLE_CREDENTIALS_FILE')}")
-print(f"GOOGLE_CREDENTIALS_JSON: {'SET' if os.getenv('GOOGLE_CREDENTIALS_JSON') else 'NOT SET'}")
-print(f"GOOGLE_SHEET_ID: {os.getenv('GOOGLE_SHEET_ID')}")
-print("Current directory:", os.getcwd())
-print("Files in current dir:", os.listdir('.'))
-print("==========================")
+GOOGLE_SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
+]
+
 
 def allowed_file(filename):
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+    return filename and "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 def get_google_sheet():
-    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-    credentials_file = os.getenv("GOOGLE_CREDENTIALS_FILE")
-    credentials_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
-    sheet_id = os.getenv("GOOGLE_SHEET_ID")
-
-    if not sheet_id:
-        raise ValueError("Missing GOOGLE_SHEET_ID environment variable")
-
-    if credentials_json:
-        try:
-            credentials_data = json.loads(credentials_json)
-        except json.JSONDecodeError as error:
-            raise ValueError(f"Invalid GOOGLE_CREDENTIALS_JSON: {error}")
-        credentials = Credentials.from_service_account_info(credentials_data, scopes=scopes)
-    elif credentials_file:
-        if not os.path.exists(credentials_file):
-            raise FileNotFoundError(f"Google credentials file not found: {credentials_file}")
-        credentials = Credentials.from_service_account_file(credentials_file, scopes=scopes)
-    else:
-        raise ValueError("Missing Google credentials: set GOOGLE_CREDENTIALS_JSON or GOOGLE_CREDENTIALS_FILE")
+    credentials = Credentials.from_service_account_file(
+        GOOGLE_CREDENTIALS_FILE,
+        scopes=GOOGLE_SCOPES
+    )
 
     client = gspread.authorize(credentials)
-    sheet = client.open_by_key(sheet_id).sheet1
-    return sheet
+    spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+
+    return spreadsheet.sheet1
 
 
 def send_confirmation_email(email, full_name):
     try:
-        subject = "Job Application Confirmation"
-        html_body = f"""
-        <html>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <div style="background-color: #f4f7fb; padding: 20px; border-radius: 8px;">
-                    <h2 style="color: #2563eb;">Thank you for your application!</h2>
-                    <p>Hello <strong>{full_name}</strong>,</p>
-                    <p>We have received your job application at <strong>{datetime.now().strftime("%d/%m/%Y %H:%M:%S")}</strong>.</p>
-                    <p>Your application will be reviewed carefully. If you meet the requirements, we will contact you within <strong>7 business days</strong>.</p>
-                    <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
-                    <p style="color: #666; font-size: 13px;">
-                        <strong>Contact Information:</strong><br>
-                        Email: {email}<br>
-                        Submission Date: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}
-                    </p>
-                    <p style="color: #999; font-size: 12px;">
-                        This is an automated email. Please do not reply to this email.
-                    </p>
-                </div>
-            </body>
-        </html>
-        """
-        msg = Message(subject=subject, recipients=[email], html=html_body)
+        msg = Message(
+            subject="Application Received - Job Application Collector",
+            recipients=[email],
+            body=f"""Dear {full_name},
+
+Thank you for your application.
+
+We have successfully received your application information and CV.
+Our recruitment team will review your submission and contact you if your profile matches our requirements.
+
+Best regards,
+Recruitment Team
+"""
+        )
+
         mail.send(msg)
-        return True
-    except Exception as error:
-        print(f"Error sending email: {error}")
-        return False
+        print(f"Email sent to {email}")
+
+    except Exception:
+        print("Email sending error:")
+        print(traceback.format_exc())
+
+
+def send_confirmation_email_async(email, full_name):
+    def task():
+        with app.app_context():
+            send_confirmation_email(email, full_name)
+
+    thread = Thread(target=task)
+    thread.daemon = True
+    thread.start()
+
+
+@app.errorhandler(RequestEntityTooLarge)
+def handle_file_too_large(error):
+    flash("File is too large. Please upload a PDF file smaller than 5MB.")
+    return redirect(url_for("index"))
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -130,12 +132,13 @@ def index():
                 return redirect(url_for("index"))
 
             original_filename = secure_filename(cv_file.filename)
-            timestamp_for_file = datetime.now().strftime("%Y%m%d%H%M%S")
-            saved_filename = f"{timestamp_for_file}_{original_filename}"
+            saved_filename = datetime.now().strftime("%Y%m%d%H%M%S") + "_" + original_filename
             file_path = os.path.join(app.config["UPLOAD_FOLDER"], saved_filename)
+
             cv_file.save(file_path)
 
             submitted_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
             row_data = [
                 submitted_at,
                 full_name,
@@ -149,20 +152,20 @@ def index():
             sheet = get_google_sheet()
             sheet.append_row(row_data, value_input_option="USER_ENTERED")
 
-            email_sent = send_confirmation_email(email, full_name)
-            if email_sent:
-                flash("Application submitted successfully! A confirmation email has been sent.")
-            else:
-                flash("Application submitted successfully! (Confirmation email could not be sent)")
+            send_confirmation_email_async(email, full_name)
 
-        except Exception as error:
-            print(f"ERROR in POST: {error}")
-            flash(f"An error occurred: {error}")
+            flash("Application submitted successfully! A confirmation email will be sent shortly.")
+            return redirect(url_for("index"))
 
-        return redirect(url_for("index"))
+        except Exception:
+            print("ERROR in POST:")
+            print(traceback.format_exc())
+
+            flash("An error occurred while submitting your application. Please try again later.")
+            return redirect(url_for("index"))
 
     return render_template("index.html")
 
 
 if __name__ == "__main__":
-    app.run(debug=False, host="0.0.0.0", port=5000)
+    app.run(debug=True)
